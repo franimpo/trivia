@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acronym Hero: Music Edition</title>
+    <style>
+        :root {
+            --bg: #121212;
+            --card: #1e1e1e;
+            --text: #e0e0e0;
+            --accent: #bb86fc;
+            --correct: #03dac6;
+            --wrong: #cf6679;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+
+        .container {
+            background-color: var(--card);
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            width: 90%;
+            max-width: 500px;
+            text-align: center;
+        }
+
+        h1 { margin-top: 0; color: var(--accent); }
+        
+        .hidden { display: none; }
+
+        /* Game Elements */
+        .acronym-box {
+            font-size: 3rem;
+            font-weight: bold;
+            letter-spacing: 5px;
+            margin: 20px 0;
+            color: white;
+            text-shadow: 0 0 10px rgba(187, 134, 252, 0.3);
+        }
+
+        .tags {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .tag {
+            background: #333;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            border: 1px solid #444;
+        }
+
+        input[type="text"] {
+            width: 80%;
+            padding: 12px;
+            border-radius: 6px;
+            border: 1px solid #444;
+            background: #2c2c2c;
+            color: white;
+            font-size: 1rem;
+            margin-bottom: 15px;
+            outline: none;
+        }
+
+        input[type="text"]:focus {
+            border-color: var(--accent);
+        }
+
+        button {
+            background-color: var(--accent);
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 1rem;
+            transition: transform 0.1s;
+        }
+
+        button:active { transform: scale(0.98); }
+
+        /* Feedback States */
+        .feedback {
+            margin-top: 15px;
+            font-weight: bold;
+            min-height: 1.2em;
+        }
+        .correct-msg { color: var(--correct); }
+        .wrong-msg { color: var(--wrong); }
+        .answer-reveal { display: block; margin-top: 5px; font-size: 0.9rem; color: #aaa; }
+
+        .progress {
+            margin-top: 20px;
+            font-size: 0.8rem;
+            color: #777;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div id="start-screen">
+            <h1>Acronym Hero</h1>
+            <p>Guess the Album or Song from its initials.</p>
+            <p>20 Rounds. Difficulty increases as you go.</p>
+            <button onclick="startGame()">Start Game</button>
+        </div>
+
+        <div id="game-screen" class="hidden">
+            <div class="progress">Question <span id="current-q">1</span> / 20</div>
+            <div class="acronym-box" id="acronym-display">???</div>
+            
+            <div class="tags">
+                <span class="tag" id="type-tag">ALBUM</span>
+                <span class="tag" id="genre-tag">ROCK</span>
+                <span class="tag" id="decade-tag">1970s</span>
+            </div>
+
+            <input type="text" id="user-guess" placeholder="Type the full title..." autocomplete="off">
+            <br>
+            <button id="submit-btn" onclick="checkAnswer()">Submit</button>
+            <button id="next-btn" class="hidden" onclick="nextQuestion()">Next -></button>
+
+            <div class="feedback" id="feedback-area"></div>
+        </div>
+
+        <div id="end-screen" class="hidden">
+            <h1>Game Over!</h1>
+            <p>Your Final Score:</p>
+            <h2 style="font-size: 3rem; margin: 10px 0;"><span id="final-score">0</span>/20</h2>
+            <div id="score-message"></div>
+            <br>
+            <button onclick="startGame()">Play Again</button>
+        </div>
+    </div>
+
+    <script>
+        // DATASET: Difficulty 1 (Easy), 2 (Medium), 3 (Hard)
+        const database = [
+            // EASY (Pop hits, Classics)
+            { a: "DSOTM", t: "Dark Side of the Moon", type: "Album", g: "Prog Rock", d: "1970s", diff: 1 },
+            { a: "SLTS", t: "Smells Like Teen Spirit", type: "Song", g: "Grunge", d: "1990s", diff: 1 },
+            { a: "MBDTF", t: "My Beautiful Dark Twisted Fantasy", type: "Album", g: "Hip Hop", d: "2010s", diff: 1 },
+            { a: "BORN IN THE USA", t: "Born in the USA", type: "Song", g: "Rock", d: "1980s", diff: 1 },
+            { a: "WAP", t: "WAP", type: "Song", g: "Hip Hop", d: "2020s", diff: 1 },
+            { a: "YMCA", t: "YMCA", type: "Song", g: "Disco", d: "1970s", diff: 1 },
+            { a: "AIWFCIY", t: "All I Want For Christmas Is You", type: "Song", g: "Pop", d: "1990s", diff: 1 },
+            { a: "TS", t: "Taylor Swift", type: "Album", g: "Country", d: "2000s", diff: 1 },
+            { a: "BR", t: "Bohemian Rhapsody", type: "Song", g: "Rock", d: "1970s", diff: 1 },
+            { a: "HABS", t: "Hit Me Baby One More Time", type: "Song", g: "Pop", d: "1990s", diff: 1 },
+
+            // MEDIUM (Slightly longer, or genre specific)
+            { a: "GKMC", t: "Good Kid MAAD City", type: "Album", g: "Hip Hop", d: "2010s", diff: 2 },
+            { a: "OKC", t: "OK Computer", type: "Album", g: "Alt Rock", d: "1990s", diff: 2 },
+            { a: "SGT PEPPER", t: "Sgt Peppers Lonely Hearts Club Band", type: "Album", g: "Rock", d: "1960s", diff: 2 },
+            { a: "NFR", t: "Norman Fucking Rockwell", type: "Album", g: "Pop/Alt", d: "2010s", diff: 2 },
+            { a: "TOTP", t: "Turn Off The Lights", type: "Song", g: "Pop Punk", d: "2000s", diff: 2 },
+            { a: "AM", t: "Arctic Monkeys", type: "Album", g: "Indie Rock", d: "2010s", diff: 2 }, // Actually the album is just AM, tricky!
+            { a: "WUTANG", t: "Enter the Wu-Tang (36 Chambers)", type: "Album", g: "Hip Hop", d: "1990s", diff: 2 },
+            { a: "GRODT", t: "Get Rich or Die Tryin", type: "Album", g: "Hip Hop", d: "2000s", diff: 2 },
+            { a: "SOSS", t: "Sound of Silver", type: "Album", g: "Dance Punk", d: "2000s", diff: 2 },
+            { a: "COCC", t: "Chemtrails Over the Country Club", type: "Album", g: "Alt Pop", d: "2020s", diff: 2 },
+
+            // HARD (Long acronyms, indie, or older)
+            { a: "WPSIATWIN", t: "Whatever People Say I Am, That's What I'm Not", type: "Album", g: "Indie Rock", d: "2000s", diff: 3 },
+            { a: "IYRTITL", t: "If You're Reading This It's Too Late", type: "Album", g: "Hip Hop", d: "2010s", diff: 3 },
+            { a: "TQEISM", t: "The Queen Is Dead", type: "Album", g: "Indie", d: "1980s", diff: 3 }, 
+            { a: "ITAOTS", t: "In the Aeroplane Over the Sea", type: "Album", g: "Indie Folk", d: "1990s", diff: 3 },
+            { a: "MMLP", t: "The Marshall Mathers LP", type: "Album", g: "Hip Hop", d: "2000s", diff: 3 },
+            { a: "KYE", t: "Kanye West", type: "Artist/Album", g: "Hip Hop", d: "2000s", diff: 3 },
+            { a: "TPAB", t: "To Pimp A Butterfly", type: "Album", g: "Hip Hop", d: "2010s", diff: 3 },
+            { a: "FIONA", t: "Fetch The Bolt Cutters", type: "Album", g: "Art Pop", d: "2020s", diff: 3 },
+            { a: "Lonerism", t: "Lonerism", type: "Album", g: "Psych Rock", d: "2010s", diff: 3 }
+        ];
+
+        let gameQueue = [];
+        let score = 0;
+        let currentIndex = 0;
+        const totalRounds = 20;
+
+        const screens = {
+            start: document.getElementById('start-screen'),
+            game: document.getElementById('game-screen'),
+            end: document.getElementById('end-screen')
+        };
+
+        const ui = {
+            acronym: document.getElementById('acronym-display'),
+            type: document.getElementById('type-tag'),
+            genre: document.getElementById('genre-tag'),
+            decade: document.getElementById('decade-tag'),
+            input: document.getElementById('user-guess'),
+            feedback: document.getElementById('feedback-area'),
+            submitBtn: document.getElementById('submit-btn'),
+            nextBtn: document.getElementById('next-btn'),
+            currentQ: document.getElementById('current-q'),
+            finalScore: document.getElementById('final-score'),
+            scoreMsg: document.getElementById('score-message')
+        };
+
+        function shuffle(array) {
+            return array.sort(() => Math.random() - 0.5);
+        }
+
+        function startGame() {
+            // Prepare the game queue: 
+            // 7 Easy, 8 Medium, 5 Hard (Total 20)
+            const easy = shuffle(database.filter(i => i.diff === 1)).slice(0, 7);
+            const medium = shuffle(database.filter(i => i.diff === 2)).slice(0, 8);
+            const hard = shuffle(database.filter(i => i.diff === 3)).slice(0, 5);
+
+            gameQueue = [...easy, ...medium, ...hard];
+            
+            score = 0;
+            currentIndex = 0;
+            
+            showScreen('game');
+            loadQuestion();
+        }
+
+        function showScreen(name) {
+            Object.values(screens).forEach(s => s.classList.add('hidden'));
+            screens[name].classList.remove('hidden');
+        }
+
+        function loadQuestion() {
+            const item = gameQueue[currentIndex];
+            
+            ui.acronym.textContent = item.a;
+            ui.type.textContent = item.type;
+            ui.genre.textContent = item.g;
+            ui.decade.textContent = item.d;
+            
+            ui.currentQ.textContent = currentIndex + 1;
+            ui.input.value = "";
+            ui.input.disabled = false;
+            ui.input.focus();
+            
+            ui.feedback.innerHTML = "";
+            ui.submitBtn.classList.remove('hidden');
+            ui.nextBtn.classList.add('hidden');
+        }
+
+        function checkAnswer() {
+            const item = gameQueue[currentIndex];
+            const userGuess = ui.input.value.toLowerCase().replace(/[^a-z0-9]/g, ''); // normalize
+            const answer = item.t.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+            ui.input.disabled = true;
+            ui.submitBtn.classList.add('hidden');
+            ui.nextBtn.classList.remove('hidden');
+            ui.nextBtn.focus();
+
+            if (userGuess === answer) {
+                score++;
+                ui.feedback.innerHTML = `<span class="correct-msg">Correct!</span>`;
+            } else {
+                ui.feedback.innerHTML = `<span class="wrong-msg">Wrong!</span><span class="answer-reveal">Answer: ${item.t}</span>`;
+            }
+
+            if (currentIndex === totalRounds - 1) {
+                ui.nextBtn.textContent = "Finish Game";
+            } else {
+                ui.nextBtn.textContent = "Next ->";
+            }
+        }
+
+        function nextQuestion() {
+            currentIndex++;
+            if (currentIndex < totalRounds) {
+                loadQuestion();
+            } else {
+                endGame();
+            }
+        }
+
+        function endGame() {
+            showScreen('end');
+            ui.finalScore.textContent = score;
+            
+            let msg = "";
+            if (score === 20) msg = "You are a Music God! 🎸";
+            else if (score > 15) msg = "Amazing knowledge! 💿";
+            else if (score > 10) msg = "Solid effort! 🎧";
+            else msg = "Time to listen to more music! 🎵";
+            
+            ui.scoreMsg.textContent = msg;
+        }
+
+        // Allow pressing Enter to submit
+        ui.input.addEventListener("keypress", function(event) {
+            if (event.key === "Enter") {
+                event.preventDefault();
+                checkAnswer();
+            }
+        });
+    </script>
+</body>
+</html>
